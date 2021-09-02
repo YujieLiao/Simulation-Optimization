@@ -1,0 +1,136 @@
+---
+title: "LP Exercies"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+
+## Working Together
+
+```{r}
+
+library(lpSolve)
+library(linprog) #liner programming
+advert <- read.csv("https://raw.githubusercontent.com/saberry/SimOps/main/advertising_data.csv", 
+                   row.names = 1)
+
+dropDemos <- which(names(advert) == "demographic_total")
+
+objectiveFunction <- as.matrix(advert["cost", -c(dropDemos)])
+
+dropCost <- which(rownames(advert) == "cost")
+
+
+constraintMargins <- as.matrix(advert[-c(dropCost), "demographic_total"])
+
+
+constraintMatrix <- as.matrix(advert[-c(dropCost), -c(dropDemos)])
+
+
+
+res <- solveLP(objectiveFunction, constraintMargins, constraintMatrix, 
+              maximum = FALSE, const.dir = rep(">=", length(constraintMargins)))
+
+res$opt
+
+res$solution
+
+res$con 
+```
+
+### Keeping Track Of Variables
+
+```{r}
+diag(9)
+rbind(constraintMatrix, diag(9))
+```
+
+
+### Lower and Upper Bounds
+```{r}
+#install.packages(c("ROI", "ROI.plugin.glpk"))
+library(ROI)
+library(ROI.plugin.glpk)
+my_constraints <- L_constraint(constraintMatrix, rep(">=", length(constraintMargins)), constraintMargins)
+
+my_bounds <- V_bound(li=1:9,ui = 1:9, lb=rep(1,9), ub = rep(3000,9))
+model_crete <- OP(objectiveFunction, my_constraints, maximum = FALSE, bounds = my_bounds )
+solve_model <- ROI_solve(model_crete)
+solve_model
+solution(solve_model)
+solution(solve_model,"objval")
+
+
+
+```
+
+
+## Solve this problem
+
+$$
+\begin{aligned}
+\text{Maximize:}\\
+\text{revenue} = 40_{oil} + 7.5_{flower} \\
+\text{Subject to:} \\
+\text{needs} = 30_{oil} + 3_{flower} \leq 8960 \\
+\text{oil}, \text{flower} \geq 0
+\end{aligned}
+$$
+
+```{r}
+library(linprog)
+
+objectiveFunction <- c(40,7.5)
+
+constraintValues <- 8960 #>0 is default cannot go negative
+
+constraintMatrix <- rbind(c(30,3))
+
+library(ROI)
+
+constraintDirections <- c("<=")
+
+model_create <- OP(objectiveFunction, L_constraint(constraintMatrix, constraintDirections, constraintValues), maximum =TRUE)
+
+
+model_solve <- ROI_solve(model_create)
+
+solution(model_solve)
+
+#linprog::solveLP()
+```
+
+### Adding Upper and Lower Bounds
+
+Produce at least 50 grams of oil and make note of what happens.
+
+```{r}
+my_bounds <- V_bound(li = 1:2, ui=1:2, lb = c(50,0), ub = c(100000,50000))
+my_constraints <- L_constraint(constraintMatrix, c("<="), constraintValues)
+model1 <- OP(objectiveFunction,my_constraints, maximum = TRUE,bounds = my_bounds)
+solve_model <- ROI_solve(model1)
+
+solve_model
+solution(solve_model)
+solution(solve_model,"objval")
+
+
+```
+
+Keep your lower bound for oil, and also specify an upper bound to keep flower less than or equal to 2000. How does your solution change?
+
+```{r}
+my_bounds <- V_bound(li = 1:2, ui=1:2, lb = c(50,0), ub = c(100000,2000))
+my_constraints <- L_constraint(constraintMatrix, c("<="), constraintValues)
+model1 <- OP(objectiveFunction,my_constraints, maximum = TRUE,bounds = my_bounds)
+solve_model <- ROI_solve(model1)
+
+solve_model
+solution(solve_model)
+solution(solve_model,"objval")
+
+```
+
