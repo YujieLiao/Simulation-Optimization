@@ -1,0 +1,362 @@
+---
+title: "Final Project"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, comment = "")
+```
+
+#Question Stocking Shelves: Qiqi Wu
+**I learned that we can be more flexible on the method when approaching the objective. For this question, hand calculated using simple math instead of using complicated model. ** <br>
+  
+#Question Consumers: A Fickle Bag: Shirley Liao
+**I have learned how to leverage ROI and map_df together. By combining them together, I can simulate different
+proportion and check the revenue under different decision. Also use whats_left to save the proportion left
+can be a good way to control different proportion for another product. 
+Sometimes straight math can be a good solution too.**<br>
+
+#Question From Sales to Scales: Yuqi Liu. 
+**I have learned how to use simmer to do simulations. The at() can not be include in a function. My teammates are great. Since we have busy and very different schedule, we decided to divided this project into three parts. Each of us do one question and records individually. However, we communicate with each other often and well. Communication and flexible schedule made our team efficient and productive. ** <br>
+
+
+
+
+
+
+```{r}
+#Question Stocking Shelves: Qiqi Wu
+#I learned that we can be more flexible on the method when approaching the objective. For this question, hand calculated using simple math instead of using complicated model. 
+  
+#Question Consumers: A Fickle Bag: Shirley Liao
+#I have learned how to leverage ROI and map_df together. By combining them together, I can simulate different
+#proportion and check the revenue under different decision. Also use whats_left to save the proportion left
+#can be a good way to control different proportion for another product. 
+#Sometimes straight math can be a good solution too.
+
+#Question From Sales to Scales: Yuqi Liu. 
+# I have learned how to use simmer to do simulations. The at() can not be include in a function. My teammates are great. Since we have busy and very different schedule, we decided to divided this project into three parts. Each of us do one question and records individually. However, we communicate with each other often and well. Communication and flexible schedule made our team efficient and productive. 
+```
+
+
+
+
+The Cloud Cannabis Company (Cloud) operates 4 dispensaries within Michigan, with a 5th opening soon in Detroit. Like most business in this space, they are faced with intense competition and an ever-growing consumer base.
+
+## Stocking Shelves
+
+Across the 4 current locations, Cloud offers product categories such as flower, pre-rolls, concentrates, and edibles. 
+
+For each of these products, average prices (retail), costs (Cloud's acquisition cost), and demand  are listed below:
+
+```{r}
+library(flextable)
+data.frame(product = c("flower (3.5 grams)", "pre-rolls (1 gram)", 
+                       "concentrates (1 gram)", "edibles (100 mg)"), 
+           price = c(45, 12, 60, 15), 
+           cost = c(25, 5, 50, 10), 
+           demand = c(37, 15, 20, 28)) |>
+  flextable::flextable(cwidth = 2.5, cheight = .15)
+```
+
+Demand is an approximation of the percentage of sales for each product type. 
+
+Cloud's annual product budget is 850,000 dollars. Given the demand needs, how should Cloud allocate their budget over the product types to maximize revenue?
+
+```{r}
+#Qiqi wu
+flower_budget<-850000 *0.37
+pre_roll_budget<-850000*0.15
+concentrates_budget<-850000*0.2
+edibles_budget<-850000*0.28
+flower_unit<-flower_budget/25
+pre_roll_unit<-pre_roll_budget/5
+concentrates_unit<-concentrates_budget/50
+edibles_unit<-edibles_budget/10
+revenue_total<-flower_unit*45+pre_roll_unit*12+concentrates_unit*60+edibles_unit*15
+revenue_total
+
+
+
+#Shirley: if we use ROI: Same result
+library(ROI)
+library(ROI.plugin.glpk)
+cvec <- c(45, 12, 60, 15)
+
+bvec <- c(850000, 850000 * .37, 850000 * .15, 850000 * .20, 850000 * .28)
+
+constraintDirections <- c("<=", "<=", "<=", "<=", "<=")
+constraintMatrix <- rbind(c(25, 5, 50, 10),
+                          c(25, 0, 0, 0),
+                          c(0, 5, 0, 0),
+                          c(0, 0, 50, 0),
+                          c(0, 0, 0, 10))
+my_constraint <- L_constraint(constraintMatrix, constraintDirections, bvec)
+create_model <- OP(objective = cvec, constraints =my_constraint, 
+                   maximum = TRUE)
+results_model <- ROI_solve(create_model)
+model_solutions <- solution(results_model)
+model_solutions
+solution(results_model , "objval")
+```
+
+
+
+## Consumers: A Fickle Bag
+
+Industry experts are seeing the shift towards a more concentrate and edible-dominant field. If edibles or concentrates vary between 25% and 50%, how does that change Cloud's product strategy.
+
+```{r}
+library(ROI)
+library(ROI.plugin.glpk)
+library(dplyr)
+library(purrr)
+
+p4<-seq(0.25,0.5,by=0.01)
+
+a<-purrr::map_df(.x=p4,~{
+  
+  whats_left <- 1-.x
+  p3<-runif(1,0.25,0.5)
+  whats_left<-1 - .x - p3
+  p2<-runif(1,0,whats_left )
+  whats_left<-1-.x-p3-p2
+  p1<-whats_left
+
+cvec <- c(45, 12, 60, 15)
+
+bvec <- c(850000, 850000 * p1, 850000 * p2, 850000 * p3, 850000 * .x)
+
+constraintDirections <- c("<=", "<=", "<=", "<=", "<=")
+constraintMatrix <- rbind(c(25, 5, 50, 10),
+                          c(25, 0, 0, 0),
+                          c(0, 5, 0, 0),
+                          c(0, 0, 50, 0),
+                          c(0, 0, 0, 10))
+my_constraint <- L_constraint(constraintMatrix, constraintDirections, bvec)
+create_model <- OP(objective = cvec, constraints =my_constraint, 
+                   maximum = TRUE)
+results_model <- ROI_solve(create_model)
+model_solutions <- solution(results_model)
+model_solutions$solution<-solution(results_model , "objval")
+model_solutions
+data.frame(  objval = solution(results_model , "objval"),
+             model_solutions$ p1<- p1,
+              model_solutions$ p2<- p2,
+              model_solutions$ p3<- p3,
+            model_solutions$ p4<- .x)
+})
+
+
+a<-a%>%
+  arrange(-objval)
+a
+
+
+
+```
+
+
+
+
+## Moving Product
+
+Currently, Cloud receives products from the following companies: Better Provisioning (Kalamazoo), Harbor Farmz (Kalamazoo), Hazy Farms (Detroit), and Rare Michigan Genetics (Kalamazoo). Due to different locations, each company has slightly different flat shipping rates to each of the 4 current locations:
+
+```{r, results='asis'}
+data.frame(company = c(rep("Better Provisioning", 4), 
+                       rep("Harbor Farmz", 4), 
+                       rep("Hazy Farms", 4), 
+                       rep("Rare Michigan Genetics", 4)), 
+           store = rep(c("Ann Arbor", "Muskegon", "Utica", "Traverse City"), 4), 
+           cost = c(10, 8, 12, 20, 
+                    10, 8, 12, 20, 
+                    5, 10, 5, 25,
+                    10, 8, 12, 20)) |>
+  flextable::flextable(cwidth = 2.5, cheight = .15)
+```
+
+In addition to the shipping costs to each location, each store has needed flower product and each grower only has so much product. Those values are listed below:
+
+```{r}
+data.frame(company = c("Better Provisioning", "Harbor Farmz",  
+                       "Hazy Farms", "Rare Michigan Genetics"),  
+           supply = c(700, 300, 550, 420), 
+           store = c("Ann Arbor", "Muskegon", "Utica", "Traverse City"), 
+           demand = c(650, 200, 450, 250)) |>
+  flextable::flextable(cwidth = 2.5, cheight = .15)
+```
+
+## Demand Variability
+
+While the Detroit store has not opened yet, there is some concern within the Ann Arbor store that demand will decrease if the Detroit store starts doing well. Given the locations of Muskegon and Traverse City, nobody anticaptes much change in the demand. Incorporate potential shipping costs into the *Moving Product* model and introduce demand variability for both Detroit and Ann Arbor.
+
+
+
+
+
+
+
+## Employees
+
+Before the new store opens in Detroit, Cloud has already started the hiring process. Currently there are 20 people willing to work any job within the dispensary, but they have given preferences for each of the main departments. In the `job_preference_list` file, every person is listed with their preference values for each functional unit: the higher the value, the more a person would like to work in that department. Ideally, the employees are distributed equally across the functional units.
+
+## From Sales to Scales
+
+As with most dispensaries, Cloud is contemplating a leap into the production space. Unfortunately, it is not without a fair amount of risk. The risk is not about money (although the automation involved is costly), but about time. Generally, the following products get created from a plant: flower and concentrates. 
+
+From start to finish, the process to produce flower is as follows:
+
+1. Flowering stage (min: 8 weeks; max: 11 weeks)
+
+2. Drying stage (min: 7 days; max: 10 days)
+
+3. Trimming stage (mu = 1 hour; sigma = 15 minutes)
+
+4. Curing stage (min: 1 month; max: 4 months)
+
+From start to finish, the process to produce concentrates is as follows:
+
+1. Flowering stage (min: 8 weeks; max: 11 weeks)
+
+2. Drying stage (min: 7 days; max: 10 days)
+
+3. Freeze stage (20 minutes)
+
+4. Extraction stage (mu: 15 minutes; sigma: 2 minutes)
+
+5. Filtration stage (mu: 1 hour; sigma: 8 minutes)
+
+6. Solvent evaporation stage (1 hour)
+
+7. Decarbonization stage (mu: 2 days; sigma: 8 hours)
+
+8. Distillation stage (mu: 18 hours; sigma 2 hours)
+
+About 45% of a given grow goes toward flower, while the remaining 55% goes towards concentrates. How long should Cloud anticipate a first grow taking?
+
+```{r}
+#Yuqi Liu
+library(simmer)
+library(simmer.plot)
+#From start to finish, the process to produce flower is as follows:
+#1. Flowering stage (min: 8 weeks; max: 11 weeks)
+flowering_working_min <- 8*7*24
+flowering_working_max <- 11*7*24
+#2. Drying stage (min: 7 days; max: 10 days)
+drying_min <- 7*7*24
+drying_max <- 10*7*24
+#3. Trimming stage (mu = 1 hour; sigma = 15 minutes)
+trimming_mean <- 1
+trimming_sd <- 15/60
+#4. Curing stage (min: 1 month; max: 4 months)
+curing_min <- 30*24
+curing_max <- 30*4*24
+
+#From start to finish, the process to produce concentrates is as follows:
+
+#1. Flowering stage (min: 8 weeks; max: 11 weeks)
+c_Flowering_min <- 8*7*24
+c_Flowering_max <- 11*7*24
+#2. Drying stage (min: 7 days; max: 10 days)
+c_drying_min <- 7*24
+c_drying_max <- 10*24
+#3. Freeze stage (20 minutes)
+c_freeze <-  20/60
+#4. Extraction stage (mu: 15 minutes; sigma: 2 minutes)
+c_extraction_mean <- 15/60
+c_extraction_sd <- 2/60
+#5. Filtration stage (mu: 1 hour; sigma: 8 minutes)
+c_filtration_mean <- 1
+c_filtraction_sd <- 8/60
+#6. Solvent evaporation stage (1 hour)
+c_solvent <- 1
+#7. Decarbonization stage (mu: 2 days; sigma: 8 hours)
+c_decarbonization_mean <- 2*24
+c_decarbonization_sd <- 8
+#8. Distillation stage (mu: 18 hours; sigma 2 hours)
+c_distillation_mean <- 18
+c_distillation_sd <- 2
+
+plant <- purrr::map_df(.x = 1:100, ~{
+  stage <- trajectory("production stage") |>
+    set_attribute("start_time", function() {now(dispensary)}) |>
+    seize("flowering_stage") |>
+    timeout(function() {runif(n = 1,min = flowering_working_min, max = flowering_working_max)}) |>
+    release("flowering_stage") |>
+    seize("drying_stage") |>
+    timeout(function() {runif(n = 1, min = drying_min, max = drying_max)}) |>
+    release("drying_stage") |> 
+    branch(function() {sample(1:2, 1, prob = c(0.45,0.55))}, 
+           continue = c(FALSE,FALSE), 
+           trajectory() |>
+             #flowering
+             seize("trimming stage") |>
+             timeout(function() {rnorm(n = 1, mean = trimming_mean, sd = trimming_sd)}) |>
+             release("trimming stage") |>
+             seize("curing stage") |>
+             timeout(function() {runif(n = 1, min= curing_min, max= curing_max)}) |>
+             release("curing stage"),
+           #concentrates
+           trajectory() %>%
+             seize("freeze stage") |>
+             timeout(c_freeze) |>
+             release("freeze stage") |>
+             seize("extraction stage") |>
+             timeout(function() {rnorm(n = 1, mean = c_extraction_mean, sd = c_extraction_sd)}) |>
+             release("extraction stage")|>
+             seize("filtraction stage") |>
+             timeout(function() {rnorm(n = 1, mean = c_filtration_mean, sd = c_filtraction_sd)}) |>
+             release("filtraction stage")|>
+             seize("solvent evaporation stage") |>
+             timeout(c_solvent) |>
+             release("solvent evaporation stage") |>
+             seize("decarbonization stage") |>
+             timeout(function() {rnorm(n = 1, mean = c_decarbonization_mean, sd = c_decarbonization_sd)}) |>
+             release("decarbonization stage") |>
+             seize("distillation stage") |>
+             timeout(function() {rnorm(n = 1, mean = c_distillation_mean, sd = c_distillation_sd)}) |>
+             release("distillation stage"))
+  
+  dispensary <- simmer("dispensary") |>
+    add_resource("flowering_stage", capacity = 1, queue_size = 1) |>
+    add_resource("drying_stage", capacity = 1, queue_size = 1) |>
+    add_resource("trimming stage", capacity = 1, queue_size = 1) |>
+    add_resource("curing stage", capacity = 1, queue_size = 1) |>
+    add_resource("freeze stage", capacity = 1, queue_size = 1) |>
+    add_resource("extraction stage", capacity = 1, queue_size = 1) |>
+    add_resource("filtraction stage", capacity = 1, queue_size = 1) |>
+    add_resource("solvent evaporation stage", capacity = 1, queue_size = 1) |>
+    add_resource("decarbonization stage", capacity = 1, queue_size = 1) |>
+    add_resource("distillation stage", capacity = 1, queue_size = 1) |>
+    add_generator("production_stage", stage, function() c(0, -1))
+  
+  simmer::run(dispensary, until = 100000000)
+
+  
+  result <- get_mon_arrivals(dispensary)
+  
+  result$run <- .x
+  
+  result
+})
+
+mean_cycle_time <- mean(plant$end_time)
+mean_cycle_time
+```
+
+
+## Return On Investment
+
+The cost to start plant production is high. The following table offers a break down of some yearly costs for a 10,000 square foot greenhouse:
+
+```{r}
+data.frame(item = c("Rent", "Lighting", "Climate Control", 
+                    "Irrigation", "Consumables"),  
+           low = c(100000, 5000, 10000, 2500, 25000), 
+           mid = c(150000, 10000, 15000, 3000, 50000), 
+           high = c(300000, 20000, 17000, 5000, 75000)) |>
+  flextable::flextable(cwidth = 2.5, cheight = .15)
+```
+
+A high-functioning greenhouse can churn out an average of 1,400 pounds of dried product per year. However, a great number of things can happen: power failures, pests, poor yield. While the average might be 1,400 pounds, there is some variance around that (roughly 300 pounds as a standard deviation). If 1,400 pounds will return a gross profit of 1,000,000 million dollars, how much would Cloud likely make over the next 5 years?  
